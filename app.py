@@ -11,7 +11,6 @@ sigbufs = np.zeros((n, f.getNSamples()[0]))
 for i in np.arange(n):
     sigbufs[i, :] = f.readSignal(i)
 
-# Coordinates for each EEG location on your image (this is dummy data; you'll need to provide the actual coordinates)
 eeg_coords = {
     "Fc5.": (100, 100),
     "Fc3.": (200, 100),
@@ -53,9 +52,9 @@ eeg_coords = {
     "F8..": (100, 100),
     "Ft7.": (100, 100),
     "Ft8.": (100, 100),
-    "T7..": (100, 100),
+    "T7..": (160, 495),
     "T8..": (100, 100),
-    "T9..": (100, 100),
+    "T9..": (100, 500),
     "T10.": (100, 100),
     "Tp7.": (100, 100),
     "Tp8.": (100, 100),
@@ -82,16 +81,21 @@ eeg_coords = {
 # Create a figure
 fig = go.Figure()
 
-image_filename = "dataset/64_channel_sharbrough.png"
+image_filename = "dataset/head.png"
 brain_image = base64.b64encode(open(image_filename, "rb").read())
 
-fig = go.Figure(go.Image(source="data:image/png;base64,{}".format(brain_image.decode())))
-# fig.show()
-
-# # Set the axes properties
-fig.update_xaxes(showgrid=False, zeroline=False, visible=False)
-fig.update_yaxes(showgrid=False, zeroline=False, visible=False)
-
+fig.add_layout_image(
+    dict(
+        source="data:image/png;base64," + brain_image.decode(),
+        layer="below",
+        x=-1,
+        y=8,
+        sizex=1000,
+        sizey=1000,
+        xref="x",
+        yref="y",
+    )
+)
 
 global_min = np.min(sigbufs)
 global_max = np.max(sigbufs)
@@ -104,39 +108,59 @@ def create_scatter_for_timestep(timestep):
         y=[eeg_coords[label][1] for label in signal_labels],
         mode="markers",
         marker=dict(
-            size=20,
-            color=sigbufs[
-                :, timestep
-            ],  # Set the color of markers to the EEG signal values at the given timestep
-            colorscale="Viridis",  # Colorscale for the EEG signal strength
+            size=50,
+            color=sigbufs[:, timestep],
+            colorscale="Viridis",
             showscale=True,
-            cmin=global_min,  # Set the fixed minimum for the color scale
+            cmin=global_min,
             cmax=global_max,
+            opacity=0.5,
         ),
-        text=signal_labels,
     )
 
 # add traces for every step
-for i in range(sigbufs.shape[1] // 100):  # Assuming the second dimension of sigbufs is the number of timesteps
+for i in range(sigbufs.shape[1] // 100):
     fig.add_trace(create_scatter_for_timestep(i * 100))
 
 
 initial_visibility = [True] + [False] * (len(fig.data) - 1)
 
 steps = []
-for i in range(sigbufs.shape[1] // 100):  # Assuming the second dimension of sigbufs is the number of timesteps
+for i in range(sigbufs.shape[1] // 100):
     step = dict(
         method="update",
         args=[
             {"visible": initial_visibility.copy()},
             {"title": f"Timestep: {i}"},
-        ],  # layout attribute
+        ],
     )
     step["args"][0]["visible"][i] = True
     steps.append(step)
 
 sliders = [dict(active=0, currentvalue={"prefix": "Timestep: "}, steps=steps)]
 
-fig.update_layout(sliders=sliders)
+# hide the labels for sliders
+fig.update_xaxes(showticklabels=False)
+fig.update_yaxes(showticklabels=False)
+
+fig.update_layout(
+    width=1000,
+    height=1000,
+    xaxis=dict(
+        range=[0, 1000],
+        dtick=100,
+        gridcolor='lightgray',
+        gridwidth=1
+    ),
+    yaxis=dict(
+        range=[1000, 0],
+        dtick=100,
+        gridcolor='lightgray',
+        gridwidth=1
+    ),
+    sliders=sliders,
+    # autosize=False,
+    template="plotly_white",
+)
 
 fig.show()
